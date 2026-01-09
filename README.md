@@ -2,6 +2,8 @@
 
 Terraform configurations for AWS IAM Identity Center (formerly AWS SSO). This repository manages users, groups, permission sets, and account assignments through Infrastructure as Code.
 
+> **Companion Repository:** [aws-identity-management-generator](https://github.com/robbycuenot/aws-identity-management-generator) - The generator tool that reverse-engineers your current AWS IAM Identity Center state into the Terraform configurations stored in this repository. Use both repositories together for a complete IAM Identity Center management solution.
+
 ## Overview
 
 This repository works bidirectionally with a generator tool:

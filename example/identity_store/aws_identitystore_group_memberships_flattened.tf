@@ -1,0 +1,11 @@
+# Generated Terraform file for AWS IAM Identity Center
+locals {
+  group_memberships_flattened = flatten([
+    for group, users in local.group_memberships_map : [
+      for user in users : {
+        group = group
+        user  = user
+      }
+    ]
+  ])
+}

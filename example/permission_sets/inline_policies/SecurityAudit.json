@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowSecurityHubRead",
+      "Effect": "Allow",
+      "Action": [
+        "securityhub:Get*",
+        "securityhub:List*",
+        "securityhub:Describe*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowGuardDutyRead",
+      "Effect": "Allow",
+      "Action": [
+        "guardduty:Get*",
+        "guardduty:List*",
+        "guardduty:Describe*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

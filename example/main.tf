@@ -1,0 +1,27 @@
+# Generated Terraform file for AWS IAM Identity Center
+# Root module for single-workspace local deployment
+# This module orchestrates all IAM Identity Center components
+
+module "identity_store" {
+  source = "./identity_store"
+}
+
+module "managed_policies" {
+  source = "./managed_policies"
+}
+
+module "permission_sets" {
+  source = "./permission_sets"
+
+  # Pass managed policies map from dependency
+  managed_policies_map = module.managed_policies.managed_policies_map
+}
+
+module "account_assignments" {
+  source = "./account_assignments"
+
+  # Pass outputs from dependencies
+  users_map           = module.identity_store.users_map
+  groups_map          = module.identity_store.groups_map
+  permission_sets_map = module.permission_sets.permission_sets_map
+}

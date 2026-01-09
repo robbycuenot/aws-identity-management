@@ -1,0 +1,10 @@
+# Code owners for generated Terraform files
+# These files are automatically generated - review carefully before merging
+#
+# Uncomment and customize the lines below to enable code ownership:
+
+# All generated Terraform files
+# *.tf @your-org/identity-management-admins
+
+# Workflow file
+# /.github/workflows/iam_identity_center_generator.yaml @your-org/platform-team

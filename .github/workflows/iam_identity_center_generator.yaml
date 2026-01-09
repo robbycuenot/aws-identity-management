@@ -1,0 +1,174 @@
+name: IAM Identity Center Generator
+
+on:
+  # Manual dispatch trigger
+  # Allows manual execution with environment selection
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment"
+        required: true
+        type: environment
+      verbosity:
+        description: "Verbosity level"
+        required: false
+        default: "normal"
+        type: choice
+        options:
+          - "quiet"
+          - "normal"
+          - "verbose"
+      retain_managed_policies:
+        description: "Retain existing managed policies (skip refresh for faster runs)"
+        required: false
+        default: false
+        type: boolean
+
+  # Scheduled trigger - uncomment and customize for automated drift detection
+  # Note: Scheduled runs require a default environment - see job-level environment
+  # schedule:
+  #   - cron: '50 15 * * 1-5'  # Weekdays at 8:50 AM MST (15:50 UTC)
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    
+    # Use the environment selected from the dropdown
+    # For scheduled runs, you'll need to set a default here
+    environment: ${{ inputs.environment }}
+
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
+
+    steps:
+      # Check out identity management repository (current repo)
+      - name: Checkout identity management repository
+        uses: actions/checkout@v6.0.1
+        with:
+          path: config
+
+      # Check out generator repository (contains scripts, templates, config.yaml)
+      # Uses deploy key for access to private generator repository
+      - name: Checkout generator repository
+        uses: actions/checkout@v6.0.1
+        with:
+          repository: ${{ vars.REPO_OWNER }}/${{ vars.GENERATOR_REPO_NAME }}
+          ssh-key: ${{ secrets.GENERATOR_DEPLOY_KEY }}
+          path: generator
+
+      # Setup Python and install dependencies
+      - name: Setup Python
+        uses: actions/setup-python@v6.1.0
+        with:
+          python-version: '3.13'
+
+      - name: Install Python dependencies
+        run: |
+          cd generator/scripts
+          pip install -r requirements.txt
+
+      # Configure AWS credentials via OIDC
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5.1.1
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-duration-seconds: 1200
+          role-session-name: GitHubActions-${{ github.run_id }}
+
+      # Run generator with output pointing to identity management repository
+      - name: Run IAM Identity Center Generator
+        run: |
+          cd generator/scripts
+          python3 iam_identity_center_generator.py \
+            -v ${{ inputs.verbosity || vars.VERBOSITY || 'normal' }} \
+            -o ../../config/${{ vars.OUTPUT || '.' }} \
+            -s ${{ vars.STATE_MODE || 'single' }} \
+            -p ${{ vars.PLATFORM || 'local' }} \
+            -t "${{ vars.TFC_ORG }}" \
+            -x "${{ vars.PREFIX || 'aws-identity-management' }}" \
+            -e "${{ vars.TFC_ENVIRONMENT }}" \
+            -a ${{ vars.AUTO_UPDATE_PROVIDERS || 'true' }} \
+            -m ${{ vars.ENABLE_TEAM || 'false' }} \
+            -r ${{ inputs.retain_managed_policies }}
+
+      # Create branch name and PR title
+      - name: Create branch name and PR title
+        id: branch_info
+        run: |
+          BRANCH_NAME="iam-refresh-$(date -u '+%Y-%m-%d_%H-%M-UTC')"
+          PR_TITLE="IAM Identity Center Refresh - $(date -u '+%Y-%m-%d %H:%M UTC')"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "pr_title=$PR_TITLE" >> $GITHUB_OUTPUT
+
+      # Commit changes and create pull request
+      - name: Commit and create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd config
+          
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Stage all changes first (including new/deleted files)
+          git add -A
+          
+          # Check if there are staged changes
+          if git diff --staged --quiet; then
+            echo "No changes detected, skipping PR creation"
+            exit 0
+          fi
+          
+          # Show what changed
+          echo "Changes detected:"
+          git diff --staged --stat
+          
+          # Create branch and commit
+          git checkout -b "${{ steps.branch_info.outputs.branch_name }}"
+          git commit -m "chore: refresh IAM Identity Center configuration
+
+          Auto-generated Terraform code from AWS IAM Identity Center
+          Environment: ${{ inputs.environment }}
+          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          # Push branch
+          git push origin "${{ steps.branch_info.outputs.branch_name }}"
+          
+          # Create PR
+          gh pr create \
+            --title "${{ steps.branch_info.outputs.pr_title }}" \
+            --body "## IAM Identity Center Refresh
+          
+          This pull request contains automatically generated Terraform code from AWS IAM Identity Center.
+          
+          ### Configuration
+          - **Environment:** ${{ inputs.environment }}
+          - **TFC Organization:** ${{ vars.TFC_ORG }}
+          - **Prefix:** ${{ vars.PREFIX || 'aws-identity-management' }}
+          - **Generator Repository:** ${{ vars.REPO_OWNER }}/${{ vars.GENERATOR_REPO_NAME }}
+          - **Verbosity:** ${{ inputs.verbosity || 'normal' }}
+          - **State Mode:** ${{ vars.STATE_MODE || 'single' }}
+          - **Platform:** ${{ vars.PLATFORM || 'local' }}
+          - **Auto Update Providers:** ${{ vars.AUTO_UPDATE_PROVIDERS || 'true' }}
+          - **TEAM Enabled:** ${{ vars.ENABLE_TEAM || 'false' }}
+          - **Retain Managed Policies:** ${{ inputs.retain_managed_policies || 'false' }}
+          
+          ### Generated Components
+          - Identity Store (users, groups, group memberships)
+          - Permission Sets
+          - Account Assignments
+          - Managed Policies
+          
+          ### Review Checklist
+          - [ ] Review changes for unexpected drift
+          - [ ] Verify no sensitive data is exposed
+          - [ ] Check that resource names are correct
+          - [ ] Confirm deletions are intentional
+          
+          ---
+          *Generated by [IAM Identity Center Generator](https://github.com/${{ vars.REPO_OWNER }}/${{ vars.GENERATOR_REPO_NAME }})*" \
+            --base main

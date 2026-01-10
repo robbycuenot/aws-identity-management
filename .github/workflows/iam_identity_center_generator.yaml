@@ -42,6 +42,34 @@ jobs:
       id-token: write
       pull-requests: write
 
+    env:
+      # =============================================================================
+      # Configuration - All variables with defaults defined here
+      # Override any of these via GitHub repository/environment variables
+      # =============================================================================
+      
+      # Generator repository (defaults to public upstream)
+      GENERATOR_REPO_OWNER: ${{ vars.GENERATOR_REPO_OWNER || 'robbycuenot' }}
+      GENERATOR_REPO_NAME: ${{ vars.GENERATOR_REPO_NAME || 'aws-identity-management-generator' }}
+      
+      # AWS Configuration (required - no defaults)
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      
+      # Generator options
+      VERBOSITY: ${{ inputs.verbosity || vars.VERBOSITY || 'normal' }}
+      OUTPUT_PATH: ${{ vars.OUTPUT || '.' }}
+      STATE_MODE: ${{ vars.STATE_MODE || 'single' }}
+      PLATFORM: ${{ vars.PLATFORM || 'local' }}
+      PREFIX: ${{ vars.PREFIX || 'aws-identity-management' }}
+      AUTO_UPDATE_PROVIDERS: ${{ vars.AUTO_UPDATE_PROVIDERS || 'true' }}
+      ENABLE_TEAM: ${{ vars.ENABLE_TEAM || 'false' }}
+      RETAIN_MANAGED_POLICIES: ${{ inputs.retain_managed_policies || vars.RETAIN_MANAGED_POLICIES || 'false' }}
+      
+      # Terraform Cloud (only needed if PLATFORM is 'tfc')
+      TFC_ORG: ${{ vars.TFC_ORG || '' }}
+      TFC_ENVIRONMENT: ${{ vars.TFC_ENVIRONMENT || '' }}
+
     steps:
       # Check out identity management repository (current repo)
       - name: Checkout identity management repository
@@ -51,10 +79,11 @@ jobs:
 
       # Check out generator repository (contains scripts, templates, config.yaml)
       # Uses deploy key for access to private generator repository
+      # Falls back to public upstream repo if vars not configured
       - name: Checkout generator repository
         uses: actions/checkout@v6.0.1
         with:
-          repository: ${{ vars.REPO_OWNER }}/${{ vars.GENERATOR_REPO_NAME }}
+          repository: ${{ env.GENERATOR_REPO_OWNER }}/${{ env.GENERATOR_REPO_NAME }}
           ssh-key: ${{ secrets.GENERATOR_DEPLOY_KEY }}
           path: generator
 
@@ -73,8 +102,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v5.1.1
         with:
-          aws-region: ${{ vars.AWS_REGION }}
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
           role-duration-seconds: 1200
           role-session-name: GitHubActions-${{ github.run_id }}
 
@@ -83,16 +112,16 @@ jobs:
         run: |
           cd generator/scripts
           python3 iam_identity_center_generator.py \
-            -v ${{ inputs.verbosity || vars.VERBOSITY || 'normal' }} \
-            -o ../../config/${{ vars.OUTPUT || '.' }} \
-            -s ${{ vars.STATE_MODE || 'single' }} \
-            -p ${{ vars.PLATFORM || 'local' }} \
-            -t "${{ vars.TFC_ORG }}" \
-            -x "${{ vars.PREFIX || 'aws-identity-management' }}" \
-            -e "${{ vars.TFC_ENVIRONMENT }}" \
-            -a ${{ vars.AUTO_UPDATE_PROVIDERS || 'true' }} \
-            -m ${{ vars.ENABLE_TEAM || 'false' }} \
-            -r ${{ inputs.retain_managed_policies }}
+            -v ${{ env.VERBOSITY }} \
+            -o ../../config/${{ env.OUTPUT_PATH }} \
+            -s ${{ env.STATE_MODE }} \
+            -p ${{ env.PLATFORM }} \
+            -t "${{ env.TFC_ORG }}" \
+            -x "${{ env.PREFIX }}" \
+            -e "${{ env.TFC_ENVIRONMENT }}" \
+            -a ${{ env.AUTO_UPDATE_PROVIDERS }} \
+            -m ${{ env.ENABLE_TEAM }} \
+            -r ${{ env.RETAIN_MANAGED_POLICIES }}
 
       # Create branch name and PR title
       - name: Create branch name and PR title
@@ -147,15 +176,15 @@ jobs:
           
           ### Configuration
           - **Environment:** ${{ inputs.environment }}
-          - **TFC Organization:** ${{ vars.TFC_ORG }}
-          - **Prefix:** ${{ vars.PREFIX || 'aws-identity-management' }}
-          - **Generator Repository:** ${{ vars.REPO_OWNER }}/${{ vars.GENERATOR_REPO_NAME }}
-          - **Verbosity:** ${{ inputs.verbosity || 'normal' }}
-          - **State Mode:** ${{ vars.STATE_MODE || 'single' }}
-          - **Platform:** ${{ vars.PLATFORM || 'local' }}
-          - **Auto Update Providers:** ${{ vars.AUTO_UPDATE_PROVIDERS || 'true' }}
-          - **TEAM Enabled:** ${{ vars.ENABLE_TEAM || 'false' }}
-          - **Retain Managed Policies:** ${{ inputs.retain_managed_policies || 'false' }}
+          - **TFC Organization:** ${{ env.TFC_ORG }}
+          - **Prefix:** ${{ env.PREFIX }}
+          - **Generator Repository:** ${{ env.GENERATOR_REPO_OWNER }}/${{ env.GENERATOR_REPO_NAME }}
+          - **Verbosity:** ${{ env.VERBOSITY }}
+          - **State Mode:** ${{ env.STATE_MODE }}
+          - **Platform:** ${{ env.PLATFORM }}
+          - **Auto Update Providers:** ${{ env.AUTO_UPDATE_PROVIDERS }}
+          - **TEAM Enabled:** ${{ env.ENABLE_TEAM }}
+          - **Retain Managed Policies:** ${{ env.RETAIN_MANAGED_POLICIES }}
           
           ### Generated Components
           - Identity Store (users, groups, group memberships)
@@ -170,5 +199,5 @@ jobs:
           - [ ] Confirm deletions are intentional
           
           ---
-          *Generated by [IAM Identity Center Generator](https://github.com/${{ vars.REPO_OWNER }}/${{ vars.GENERATOR_REPO_NAME }})*" \
+          *Generated by [IAM Identity Center Generator](https://github.com/${{ env.GENERATOR_REPO_OWNER }}/${{ env.GENERATOR_REPO_NAME }})*" \
             --base main

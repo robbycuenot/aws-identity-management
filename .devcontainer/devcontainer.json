@@ -1,0 +1,21 @@
+{
+  "name": "AWS Identity Management",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:latest": {},
+    "ghcr.io/devcontainers/features/terraform:latest": {}
+  },
+  "containerEnv": {
+    "DOCKER_API_VERSION": "1.43"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "hashicorp.terraform"
+      ]
+    }
+  }
+}

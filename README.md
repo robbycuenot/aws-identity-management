@@ -10,11 +10,41 @@ Terraform configurations for AWS IAM Identity Center. Manage users, groups, perm
 
 | I want to... | Go to |
 |--------------|-------|
+| Re-run the generator | [Running the Generator](#running-the-generator) |
 | Grant access to an account | [Account Assignments](#account-assignments) |
 | Create a permission set | [Permission Sets](#permission-sets) |
 | Add a user or group | [Identity Store](#identity-store) |
 | Set up TEAM temporary access | [AWS TEAM](#aws-team) |
 | Understand the file structure | [Repository Structure](#repository-structure) |
+
+---
+
+## Running the Generator
+
+To re-sync this repository with your current AWS IAM Identity Center state:
+
+**Using Codespaces** (recommended):
+1. Open this repo in Codespaces
+2. Get AWS credentials from your access portal and export them:
+   ```bash
+   export AWS_ACCESS_KEY_ID="..."
+   export AWS_SECRET_ACCESS_KEY="..."
+   export AWS_SESSION_TOKEN="..."
+   export AWS_REGION="us-east-1"  # your Identity Center region
+   ```
+3. Run: `iam_identity_center_generator`
+
+**Using Docker locally**:
+```bash
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+export AWS_SESSION_TOKEN="..."
+export AWS_REGION="us-east-1"  # your Identity Center region
+
+./.devcontainer/iam_identity_center_generator.sh
+```
+
+The script pulls the latest generator container and outputs updated Terraform to this directory.
 
 ---
 

@@ -1,0 +1,29 @@
+# IAM Identity Center Generator Configuration
+# 
+# All values can be overridden via CLI flags.
+# Configuration priority: CLI flags > config.yaml > defaults
+#
+# When running via iam_identity_center_generator (Docker), the current directory
+# is mounted to /output in the container. Use "/output" to write to the repo root,
+# or "/output/subfolder" to write to a subfolder.
+
+# Docker image (used by iam_identity_center_generator script)
+image: "ghcr.io/robbycuenot/aws-identity-management-generator:latest"
+
+# Common
+verbosity: "normal"                     # -v (quiet/normal/verbose)
+output: "/output"                       # -o (use /output for Docker, see note above)
+
+# Mode
+state_mode: "single"                    # -s (single/multi)
+platform: "local"                       # -p (local/tfc)
+
+# TFC Platform (when platform=tfc)
+tfc_org: ""                             # -t
+prefix: "aws-identity-management"       # -x (prefix for project/workspace/role names)
+environment: ""                         # -e (used in TFC and GitHub)
+
+# Features
+enable_team: false                      # -m
+auto_update_providers: true             # -a
+retain_managed_policies: false          # -r (skip managed policy refresh for faster runs)

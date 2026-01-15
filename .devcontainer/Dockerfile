@@ -1,5 +1,6 @@
 FROM mcr.microsoft.com/devcontainers/base:bookworm
 
-# Copy the generator script to PATH
-COPY .devcontainer/iam_identity_center_generator.sh /usr/local/bin/iam_identity_center_generator
-RUN chmod +x /usr/local/bin/iam_identity_center_generator
+# Create a shim that executes the generator script from the workspace
+# This allows the script to be updated without rebuilding the container
+RUN echo '#!/bin/bash\nexec "${CODESPACE_VSCODE_FOLDER:-/workspaces/aws-identity-management}/.devcontainer/iam_identity_center_generator.sh" "$@"' > /usr/local/bin/iam_identity_center_generator \
+    && chmod +x /usr/local/bin/iam_identity_center_generator

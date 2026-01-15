@@ -43,7 +43,9 @@ fi
 
 # Check Codespaces secrets (highest priority)
 if [ -n "$GENERATOR_REPO_OWNER" ] && [ -n "$GENERATOR_REPO_NAME" ]; then
-    IMAGE="ghcr.io/${GENERATOR_REPO_OWNER}/${GENERATOR_REPO_NAME}:latest"
+    OWNER_LOWER=$(echo "$GENERATOR_REPO_OWNER" | tr '[:upper:]' '[:lower:]')
+    NAME_LOWER=$(echo "$GENERATOR_REPO_NAME" | tr '[:upper:]' '[:lower:]')
+    IMAGE="ghcr.io/${OWNER_LOWER}/${NAME_LOWER}:latest"
     IMAGE_SOURCE="Codespaces secrets"
 fi
 

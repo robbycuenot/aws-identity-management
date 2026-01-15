@@ -6,8 +6,10 @@
 # This script pulls and runs the latest generator container, passing through
 # AWS credentials and outputting generated Terraform to the current directory.
 #
-# If config.yaml exists in the current directory, it will be used automatically.
-# Override with -c /path/to/config.yaml
+# Config file handling:
+#   - If .devcontainer/config.yaml exists, it's used automatically
+#   - Use -c <file> to specify a different config file
+#   - Relative paths are automatically translated to container paths
 #
 # Prerequisites:
 #   - Docker
@@ -15,7 +17,8 @@
 #   - AWS_REGION set to your Identity Center region
 #
 # Examples:
-#   iam_identity_center_generator              # Basic generation (uses config.yaml if present)
+#   iam_identity_center_generator              # Uses .devcontainer/config.yaml if present
+#   iam_identity_center_generator -c my.yaml   # Use my.yaml from current directory
 #   iam_identity_center_generator -m true      # Enable TEAM support
 #   iam_identity_center_generator -v verbose   # Verbose output
 
@@ -72,20 +75,44 @@ fi
 echo "Pulling image..."
 docker pull "$IMAGE"
 
-# Build config mount if config.yaml exists and -c not already specified
+# Process arguments to translate -c paths to container paths
+PROCESSED_ARGS=()
+SKIP_NEXT=false
+USER_CONFIG_FILE=""
+
+for i in "$@"; do
+    if [ "$SKIP_NEXT" = true ]; then
+        # This is the config file path after -c
+        if [[ "$i" != /* ]]; then
+            # Relative path - translate to /output/ container path
+            USER_CONFIG_FILE="$i"
+            PROCESSED_ARGS+=("/output/$i")
+        else
+            # Absolute path - use as-is (user knows what they're doing)
+            PROCESSED_ARGS+=("$i")
+        fi
+        SKIP_NEXT=false
+    elif [ "$i" = "-c" ]; then
+        PROCESSED_ARGS+=("$i")
+        SKIP_NEXT=true
+    else
+        PROCESSED_ARGS+=("$i")
+    fi
+done
+
+# Build config mount if default config.yaml exists and -c not specified by user
 CONFIG_MOUNT=""
 CONFIG_ARG=""
-if [ -f "$CONFIG_FILE" ]; then
-    # Check if user already passed -c flag
-    if [[ ! " $* " =~ " -c " ]]; then
-        CONFIG_MOUNT="-v $CONFIG_FILE:/app/config.yaml"
-        CONFIG_ARG="-c /app/config.yaml"
-        echo "Using config.yaml from $CONFIG_FILE"
-    fi
+if [ -z "$USER_CONFIG_FILE" ] && [ -f "$CONFIG_FILE" ]; then
+    CONFIG_MOUNT="-v $CONFIG_FILE:/app/config.yaml"
+    CONFIG_ARG="-c /app/config.yaml"
+    echo "Using config.yaml from $CONFIG_FILE"
+elif [ -n "$USER_CONFIG_FILE" ]; then
+    echo "Using config file: $USER_CONFIG_FILE"
 fi
 
 echo "Running generator..."
-docker run --rm \
+docker run --rm -it \
     -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
     -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
     -e AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN" \
@@ -94,7 +121,7 @@ docker run --rm \
     -v "$(pwd):/output" \
     $CONFIG_MOUNT \
     "$IMAGE" \
-    $CONFIG_ARG "$@"
+    $CONFIG_ARG "${PROCESSED_ARGS[@]}"
 
 echo ""
 echo "Generation complete! Run 'terraform init && terraform plan' to verify."
